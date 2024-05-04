@@ -294,9 +294,6 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
         //adc_val = (readRegister(CC_HI_BYTE) << 8) | readRegister(CC_LO_BYTE);
         adc_val = cc_high << 8 | cc_low;
         //bat_current_ = adc_val * 8.44 / 5.0;  // mA
-        printf("cc_high: %d\n", cc_high);
-        printf("cc_low: %d\n", cc_low);
-        printf("adc_val: %d\n", adc_val);
         bat_current_ = adc_val * 8.44 / shunt_value_mOhm_;  // mA
         if (bat_current_ > 60000) {
             bat_current_ = 0;
