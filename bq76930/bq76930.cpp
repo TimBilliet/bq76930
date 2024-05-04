@@ -289,7 +289,7 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
         uint8_t cc_high;
         uint8_t cc_low;
         
-        readRegister(0x32, &cc_high, sizeof(cc_high)); // changed CC address to address from header file
+        readRegister(CC_HI_BYTE, &cc_high, sizeof(cc_high)); // changed CC address to address from header file
         readRegister(CC_LO_BYTE, &cc_low, sizeof(cc_low));
         //adc_val = (readRegister(CC_HI_BYTE) << 8) | readRegister(CC_LO_BYTE);
         adc_val = cc_high << 8 | cc_low;
@@ -418,7 +418,6 @@ void bq76930::updateBalancingSwitches() {
             }
         }
         ESP_LOGI(TAG, "Setting CELLBAL %d register to %x", (section + 1), balancing_flags);
-        esp_log_buffer_hex(TAG, &balancing_flags, sizeof(balancing_flags));
         // Set balancing register for this section
         writeRegister(CELLBAL1 + section, balancing_flags);
         }
