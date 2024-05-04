@@ -81,7 +81,7 @@ class bq76930 {
 
         // Current limits (mA)
         int32_t max_charge_current_;
-        int overcurrent_charge_time_;
+        int overcurrent_charge_trip_time_;
         int max_discharge_current_;
         int idle_current_threshold_ = 30; // mA
         

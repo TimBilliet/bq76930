@@ -521,7 +521,6 @@ void bq76930::setOvercurrentChargeProtection(int32_t current_mA, int delay_ms) {
     overcurrent_charge_trip_time_ = delay_ms;
     max_charge_current_ = current_mA;
     ESP_LOGI(TAG, "Overcurrent charge protection set to %ld mA(not implemented yet)", current_mA);
-    return 0;
 }
 
 long bq76930::setOvercurrentDischargeProtection(int32_t current_mA, int delay_ms) {
