@@ -33,9 +33,9 @@ void app_main() {
     bms.setCellOvervoltageProtection(4240, 2);
     bms.setBalancingThresholds(0, 3700, 15);
     bms.setIdleCurrentThreshold(100);
-    bms.enableAutoBalancing();
+    bms.toggleAutoBalancing(true);
     xTaskCreate(&update_task, "update_task", 2048, NULL, 5, NULL);
-    bms.enableCharging();
+    bms.toggleCharging(true);
     while(1) {
         
         //ESP_LOGI("BMS", "Current: %d mA", bms.getBatteryCurrent());

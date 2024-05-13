@@ -19,8 +19,7 @@ class bq76930 {
         void shutdown();
 
         // charging control
-        bool enableCharging(bool enable_charging);
-        bool enableDischarging(bool enable_discharging);
+        bool toggleCharging(bool enable_charging);
         bool charging_status_;
         
         // hardware settings
@@ -40,7 +39,7 @@ class bq76930 {
         void setIdleCurrentThreshold(int current_mA);
 
         // automatic balancing when battery is within balancing thresholds
-        void enableAutoBalancing(bool enable_balancing);
+        void toggleAutoBalancing(bool enable_balancing);
 
         // battery status
         int  getBatteryCurrent();

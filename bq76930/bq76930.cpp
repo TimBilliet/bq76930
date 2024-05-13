@@ -129,8 +129,11 @@ esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {
 
 bool bq76930::determineAddressAndCrc() {
     uint8_t data;
+    // AUTO DETECT SOMETIMES DOESN'T WORK, HARDCODED TILL FIXED
     address_ = 0x08;
     crc_enabled_ = true;
+    
+    /*
     writeRegister(CC_CFG, 0x19);
     readRegister(CC_CFG, &data, sizeof(data));
     if (data == 0x19) {
@@ -163,8 +166,8 @@ bool bq76930::determineAddressAndCrc() {
     if (data == 0x19) {
         return true;
     }
-    
-    return false;
+    */
+    return true;
 }
 
 void bq76930::setAlertInterruptFlag() {
@@ -438,7 +441,7 @@ void bq76930::shutdown() {
     
 }
 
-bool bq76930::enableCharging(bool enable_charging) {
+bool bq76930::toggleCharging(bool enable_charging) {
     charging_status_ = enable_charging;
     if (enable_charging == true) {
         // uint8_t sys_ctrl2;
@@ -469,11 +472,7 @@ bool bq76930::enableCharging(bool enable_charging) {
     
 }
 
-bool bq76930::enableDischarging(bool enable_discharge) {
-    return false; //not implemented
-}
-
-void bq76930::enableAutoBalancing(bool enable_balancing) {
+void bq76930::toggleAutoBalancing(bool enable_balancing) {
     auto_balancing_enabled_ = enable_balancing;
 }
 
