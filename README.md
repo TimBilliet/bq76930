@@ -1,7 +1,7 @@
 # This is currently a Work In Progress
 Many thanks to https://github.com/mikethezipper for the original Arduino code.
 
-## This does currently not work, there are some problems with writing the registers on the BMS IC.
+## This currently doesn't work, there are some problems with writing the registers on the BMS IC.
 ## Info
 This version only supports 10 cells, no temperature readings, no discharge protection.\
 This version has only been tested on the IC with CRC.\
