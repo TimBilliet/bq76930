@@ -129,7 +129,7 @@ esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {
 
 bool bq76930::determineAddressAndCrc() {
     uint8_t data;
-    // AUTO DETECT SOMETIMES DOESN'T WORK, HARDCODED TILL FIXED
+    // AUTO DETECT SOMETIMES DOESN'T WORK, HARDCODED TILL FIXED// probably caused by non working writeregister function
     address_ = 0x08;
     crc_enabled_ = true;
     
@@ -173,6 +173,10 @@ bool bq76930::determineAddressAndCrc() {
 void bq76930::setAlertInterruptFlag() {
   interrupt_timestamp_ = (uint32_t)(esp_timer_get_time() / 1000);
   alert_interrupt_flag_ = true;
+}
+
+uint8_t bq76930::getErrorState() {
+    return error_state_;
 }
 
 void IRAM_ATTR bq76930::alertISR(void* data) {
