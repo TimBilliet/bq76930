@@ -1,4 +1,4 @@
-# ESP-IDF BQ76930 driver (WIP)
+# ESP-IDF BQ76930 driver
 Many thanks to https://github.com/mikethezipper for the original Arduino code.
 
 ## Info
