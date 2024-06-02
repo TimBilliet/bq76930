@@ -1,17 +1,17 @@
 # ESP-IDF BQ76930 driver (WIP)
 Many thanks to https://github.com/mikethezipper for the original Arduino code.
 
-## This currently doesn't work, there are some problems with writing the registers on the BMS IC.
 ## Info
 This version only supports 10 cells, no temperature readings, no discharge protection.\
 This version has only been tested on the IC with CRC.\
 
-Things that do work:
+Things that currently work:
 - Cell voltage reading
+- Pack voltage reading
+- Charge current reading
 - Overvoltage protection
-- Undervoltage protection
+- Undervoltage detection (protection hasn't been test since i have a charge only bms)
 - Balancing
-- Charge current measurement
 
 # Fixes/changes of the original Arduino code.
 - Charge current wasn't calculated properly, the shunt resistor value wasn't being used. A hardcoded number was used.
