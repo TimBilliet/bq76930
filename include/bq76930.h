@@ -44,7 +44,8 @@ class bq76930 {
         // battery status
         int  getBatteryCurrent();
         int  getBatteryVoltage();
-        int  getCellVoltage(int id_cell);    // from 1 to 15
+        int  getCellVoltage(int id_cell);    // from 1 to 10
+        bool getBalancingState(int id_cell); // from 1 to 10
         int  getMinCellVoltage();
         int  getMaxCellVoltage();
         float getTemperatureDegC(int channel = 1);
@@ -72,6 +73,7 @@ class bq76930 {
         
         int number_of_cells_ = 10;
         uint16_t cell_voltages_[MAX_NUMBER_OF_CELLS];          // mV
+        bool cell_balancing_states_[MAX_NUMBER_OF_CELLS];       // true = balancing active
         int id_cell_max_voltage_;
         int id_cell_min_voltage_;
         uint16_t bat_voltage_;                                // mV
@@ -122,8 +124,6 @@ class bq76930 {
         esp_err_t readRegister(uint8_t reg_addr, uint8_t *data, size_t len);
 
         esp_err_t writeRegister(uint8_t address, uint8_t data);
-
-        esp_err_t i2cRead(uint8_t *data_buf, size_t len);
 
 };
 

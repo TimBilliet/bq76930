@@ -405,22 +405,26 @@ void bq76930::updateBalancingSwitches() {
         balancing_flags = 0;
         for (int i = 0; i < 5; i++) {
             if ((cell_voltages_[section*5 + i] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_) {
-            // try to enable balancing of current cell
-            balancing_flags_target = balancing_flags | (1 << i);
+                // try to enable balancing of current cell
+                balancing_flags_target = balancing_flags | (1 << i);
 
-            // check if attempting to balance adjacent cells
-            bool adjacent_cell_collision = 
-                ((balancing_flags_target << 1) & balancing_flags) ||
-                ((balancing_flags << 1) & balancing_flags_target);
-                
-            if (adjacent_cell_collision == false) {
-                balancing_flags = balancing_flags_target;
-            }          
+                // check if attempting to balance adjacent cells
+                bool adjacent_cell_collision = 
+                    ((balancing_flags_target << 1) & balancing_flags) ||
+                    ((balancing_flags << 1) & balancing_flags_target);
+                    
+                if (adjacent_cell_collision == false) {
+                    balancing_flags = balancing_flags_target;
+                    cell_balancing_states_[i + section * 5] = true;
+                } else {
+                    cell_balancing_states_[i + section * 5] = false;
+                }
             }
         }
-        ESP_LOGI(TAG, "Setting CELLBAL %d register to %x", (section + 1), balancing_flags);
+        //ESP_LOGI(TAG, "Setting CELLBAL %d register to %x", (section + 1), balancing_flags);
         // Set balancing register for this section
         writeRegister(CELLBAL1 + section, balancing_flags);
+
         }
     } else if (balancing_active_ == true) {  
         // clear all CELLBAL registers
@@ -432,7 +436,9 @@ void bq76930::updateBalancingSwitches() {
     }
 }
 
-
+bool bq76930::getBalancingState(int id_cell) {
+    return cell_balancing_states_[id_cell - 1];
+}
 
 void bq76930::shutdown() {
     ESP_LOGI(TAG, "Shutting down BQ76930");
