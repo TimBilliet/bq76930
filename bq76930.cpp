@@ -51,9 +51,9 @@ esp_err_t bq76930::initialize(int alert_pin, int boot_pin) {
         err = gpio_config(&conf);
         ESP_RETURN_ON_ERROR(err, TAG, "Boot pin initialisation error!");
         gpio_set_level((gpio_num_t)boot_pin,1);
-        vTaskDelay(5 / portTICK_PERIOD_MS); // Atleast 2ms 
+        vTaskDelay(10 / portTICK_PERIOD_MS); // Atleast 2ms 
         gpio_set_level((gpio_num_t)boot_pin,0);
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
         ESP_LOGI(TAG, "IC boot sequence done");
     }
     if(determineAddressAndCrc()) {
@@ -109,31 +109,46 @@ esp_err_t bq76930::readRegister(uint8_t reg_addr, uint8_t* data, size_t len) {
     return i2c_master_write_read_device(I2C_NUM_0, address_, &reg_addr, 1, data, len, 1000 / portTICK_PERIOD_MS);
 }
 
-esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {
-    esp_err_t err;
+uint8_t _crc8_ccitt_update (uint8_t in_crc, uint8_t in_data) {
+    uint8_t i;
+    uint8_t data;
+    data = in_crc ^ in_data;
+    for ( i = 0; i < 8; i++ ) {
+        if (( data & 0x80 ) != 0 ) {
+            data <<= 1;
+            data ^= 0x07;
+        } else {
+            data <<= 1;
+        }
+    }
+    return data;
+}
+esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {// with CRC
+    uint8_t buffer[3];
+    buffer[0] = reg_addr;
+    buffer[1] = data;
+    uint8_t crc = 0;
+    if (crc_enabled_) {
+        crc = _crc8_ccitt_update(crc, (address_ << 1) | I2C_MASTER_WRITE);
+        crc = _crc8_ccitt_update(crc, buffer[0]);
+        crc = _crc8_ccitt_update(crc, buffer[1]);
+        buffer[2] = crc;
+    }
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    err = i2c_master_start(cmd);
-    assert(ESP_OK == err);
-    err = i2c_master_write_byte(cmd, (address_ << 1) | I2C_MASTER_WRITE, true);
-    assert(ESP_OK == err);
-    err = i2c_master_write_byte(cmd, reg_addr, true);
-    assert(ESP_OK == err);
-    err = i2c_master_write_byte(cmd, data, true);
-    assert(ESP_OK == err);
-    err = i2c_master_stop(cmd);
-    assert(ESP_OK == err);
-    err = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address_ << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, buffer, crc_enabled_ ? 3 : 2, true);
+    i2c_master_stop(cmd);
+    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
-    return err;
+    return ret;
 }
 
 bool bq76930::determineAddressAndCrc() {
     uint8_t data;
-    // AUTO DETECT SOMETIMES DOESN'T WORK, HARDCODED TILL FIXED
     address_ = 0x08;
     crc_enabled_ = true;
     
-    /*
     writeRegister(CC_CFG, 0x19);
     readRegister(CC_CFG, &data, sizeof(data));
     if (data == 0x19) {
@@ -166,8 +181,8 @@ bool bq76930::determineAddressAndCrc() {
     if (data == 0x19) {
         return true;
     }
-    */
-    return true;
+    
+    return false;
 }
 
 void bq76930::setAlertInterruptFlag() {
@@ -188,10 +203,8 @@ int bq76930::checkStatus() {
   }
   else {
     regSYS_STAT_t sys_stat;
-    //sys_stat.regByte = readRegister(SYS_STAT);
     readRegister(SYS_STAT, &sys_stat.regByte, sizeof(sys_stat.regByte));
     if (sys_stat.bits.CC_READY == 1) {
-      //Serial.println("Interrupt: CC ready");
       updateCurrent(true);  // automatically clears CC ready flag	
     }
     
@@ -260,20 +273,7 @@ int bq76930::checkStatus() {
   }
 }
 
-uint8_t _crc8_ccitt_update (uint8_t in_crc, uint8_t in_data) {
-    uint8_t i;
-    uint8_t data;
-    data = in_crc ^ in_data;
-    for ( i = 0; i < 8; i++ ) {
-        if (( data & 0x80 ) != 0 ) {
-            data <<= 1;
-            data ^= 0x07;
-        } else {
-            data <<= 1;
-        }
-    }
-    return data;
-}
+
 
 void bq76930::update() {
   updateCurrent();  // will only read new current value if alert was triggered
@@ -285,7 +285,6 @@ void bq76930::update() {
 void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
     int adc_val = 0;
     regSYS_STAT_t sys_stat;
-    //   sys_stat.regByte = readRegister(SYS_STAT);
     readRegister(SYS_STAT, &sys_stat.regByte, sizeof(sys_stat.regByte));
     
     if (ignore_CC_ready_flag == true || sys_stat.bits.CC_READY == 1) {
@@ -294,11 +293,9 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
         
         readRegister(CC_HI_BYTE, &cc_high, sizeof(cc_high)); // changed CC address to address from header file
         readRegister(CC_LO_BYTE, &cc_low, sizeof(cc_low));
-        //adc_val = (readRegister(CC_HI_BYTE) << 8) | readRegister(CC_LO_BYTE);
         adc_val = cc_high << 8 | cc_low;
-        //bat_current_ = adc_val * 8.44 / 5.0;  // mA
         bat_current_ = adc_val * 8.44 / shunt_value_mOhm_;  // mA
-        if (bat_current_ > 60000) {
+        if (bat_current_ > 44000) {
             bat_current_ = 0;
         }
         // reset idleTimestamp
@@ -443,31 +440,25 @@ void bq76930::shutdown() {
 
 bool bq76930::toggleCharging(bool enable_charging) {
     charging_status_ = enable_charging;
+
     if (enable_charging == true) {
-        // uint8_t sys_ctrl2;
-        // readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
-        // writeRegister(SYS_CTRL2, sys_ctrl2 & 0b11111110);  // switch CHG off
-        // ESP_LOGI(TAG,"Disabling CHG FET");
-        // return true;
         if (checkStatus() == 0 &&
-        cell_voltages_[id_cell_max_voltage_] < max_cell_voltage_ &&
-        temperatures_[0] < max_celltemp_charge_ &&
-        temperatures_[0] > min_celltemp_charge_) {
-        uint8_t sys_ctrl2;
-        readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
-        writeRegister(SYS_CTRL2, sys_ctrl2 | 0b00000001);  // switch CHG on
-        ESP_LOGI(TAG,"CHG FET enabled");
-        return true;
+            cell_voltages_[id_cell_max_voltage_] < max_cell_voltage_) {
+            uint8_t sys_ctrl2;
+            readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
+            writeRegister(SYS_CTRL2, sys_ctrl2 | 0b00000001);  // switch CHG on
+            ESP_LOGI(TAG,"CHG FET enabled");
+            return true;
         } else {
-            ESP_LOGI(TAG,"Charging not allowed");
             return false;
         }
     } else {
         uint8_t sys_ctrl2;
         readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
-        writeRegister(SYS_CTRL2, sys_ctrl2 | 0b11111110);  // switch CHG off
+        writeRegister(SYS_CTRL2, sys_ctrl2 & 0b11111110);  // switch CHG off
         ESP_LOGI(TAG,"CHG FET disabled");
         return true;
+
     }
     
 }
