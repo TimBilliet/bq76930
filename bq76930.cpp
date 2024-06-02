@@ -190,6 +190,10 @@ void bq76930::setAlertInterruptFlag() {
   alert_interrupt_flag_ = true;
 }
 
+uint8_t bq76930::getErrorState() {
+    return error_state_;
+}
+
 void IRAM_ATTR bq76930::alertISR(void* data) {
   if (instance_pointer_ != 0)
   {

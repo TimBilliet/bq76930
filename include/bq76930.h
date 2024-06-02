@@ -51,7 +51,7 @@ class bq76930 {
             
         // interrupt handling (not to be called manually!)
         void setAlertInterruptFlag();
-        
+        uint8_t getErrorState();
 
     private:
     

@@ -1,4 +1,4 @@
-# This is currently a Work In Progress
+# ESP-IDF BQ76930 driver (WIP)
 Many thanks to https://github.com/mikethezipper for the original Arduino code.
 
 ## This currently doesn't work, there are some problems with writing the registers on the BMS IC.
