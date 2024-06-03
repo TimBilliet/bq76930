@@ -20,8 +20,8 @@ class bq76930 {
 
         // charging control
         bool toggleCharging(bool enable_charging);
-        bool charging_status_;
         
+        void toggleBalancing(bool enable_balancing);
         // hardware settings
         void setShuntResistorValue(int res_mOhm);
         void setThermistorBetaValue(int beta_K);
@@ -37,9 +37,6 @@ class bq76930 {
         // balancing settings
         void setBalancingThresholds(int idleTime_min = 30, int absVoltage_mV = 3400, int voltageDifference_mV = 20);
         void setIdleCurrentThreshold(int current_mA);
-
-        // automatic balancing when battery is within balancing thresholds
-        void toggleAutoBalancing(bool enable_balancing);
 
         // battery status
         int  getBatteryCurrent();
@@ -79,6 +76,7 @@ class bq76930 {
         uint16_t bat_voltage_;                                // mV
         uint16_t bat_current_;                                // mA
         uint8_t temperatures_[MAX_NUMBER_OF_THERMISTORS];    // °C/10
+        bool charging_status_;
 
         // Current limits (mA)
         int32_t max_charge_current_;
@@ -102,8 +100,8 @@ class bq76930 {
         uint8_t adc_offset_;  // mV
         
         int error_state_ = 0;
-        bool auto_balancing_enabled_ = false;
         bool balancing_active_ = false;
+        bool balancing_allowed_ = false;
         int balancing_min_idle_time_s_ = 1800;    // default: 30 minutes
         int idle_timestamp_ = 0;
         int sec_since_error_counter_ = 0;

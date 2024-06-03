@@ -379,6 +379,14 @@ void bq76930::updateTemperatures() {
     //not implemented
 }
 
+void bq76930::toggleBalancing(bool enable_balancing) {
+    if(enable_balancing) {
+        balancing_allowed_ = true;
+    } else {
+        balancing_allowed_ = false;
+    }
+}
+
 void bq76930::updateBalancingSwitches() {
     long idle_seconds = (esp_timer_get_time() - idle_timestamp_) / 1000;
     uint8_t number_of_sections = number_of_cells_/5;
@@ -390,10 +398,11 @@ void bq76930::updateBalancingSwitches() {
     }
         
     // Check if balancing allowed
-    if (checkStatus() == 0 &&
-    idle_seconds >= balancing_min_idle_time_s_ && 
-    cell_voltages_[id_cell_max_voltage_] > balancing_min_cell_voltage_mV_ &&
-    (cell_voltages_[id_cell_max_voltage_] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_) {
+    if (checkStatus() == 0
+    && idle_seconds >= balancing_min_idle_time_s_
+    && cell_voltages_[id_cell_max_voltage_] > balancing_min_cell_voltage_mV_
+    &&(cell_voltages_[id_cell_max_voltage_] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_
+    && balancing_allowed_ == true) {
 
         balancing_active_ = true;
         
@@ -471,10 +480,6 @@ bool bq76930::toggleCharging(bool enable_charging) {
 
     }
     
-}
-
-void bq76930::toggleAutoBalancing(bool enable_balancing) {
-    auto_balancing_enabled_ = enable_balancing;
 }
 
 void bq76930::setBalancingThresholds(int idle_time_min, int abs_voltage_mV, int voltage_difference_mV) {
