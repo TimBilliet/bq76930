@@ -380,11 +380,7 @@ void bq76930::updateTemperatures() {
 }
 
 void bq76930::toggleBalancing(bool enable_balancing) {
-    if(enable_balancing) {
-        balancing_allowed_ = true;
-    } else {
-        balancing_allowed_ = false;
-    }
+    balancing_allowed_ = enable_balancing;
 }
 
 void bq76930::updateBalancingSwitches() {
