@@ -3,7 +3,7 @@ Many thanks to https://github.com/mikethezipper for the original Arduino code.
 
 ## Info
 This version only supports 10 cells, no temperature readings, no discharge protection.\
-This version has only been tested on the IC with CRC.\
+This version has only been tested on the IC with CRC.
 
 Things that currently work:
 - Cell voltage reading
