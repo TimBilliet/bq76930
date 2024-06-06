@@ -256,7 +256,7 @@ int bq76930::checkStatus() {
           }
         }
         if (sys_stat.regByte & 0b00000010) { // SCD
-          if (sec_since_error_counter_ % 60 == 0) {
+          if (sec_since_error_counter_ % 6 == 0) {
             ESP_LOGE(TAG, "Attempting to clear SCD error");
             writeRegister(SYS_STAT, 0b00000010);
           }
