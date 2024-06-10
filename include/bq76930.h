@@ -103,9 +103,9 @@ class bq76930 {
         bool balancing_active_ = false;
         bool balancing_allowed_ = false;
         int balancing_min_idle_time_s_ = 1800;    // default: 30 minutes
-        int idle_timestamp_ = 0;
-        int sec_since_error_counter_ = 0;
-        int interrupt_timestamp_ = 0;
+        unsigned long idle_timestamp_ = 0;
+        unsigned int sec_since_error_counter_ = 0;
+        unsigned long interrupt_timestamp_ = 0;
 
         static bq76930* instance_pointer_;
   

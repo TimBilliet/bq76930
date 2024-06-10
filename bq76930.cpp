@@ -186,12 +186,12 @@ bool bq76930::determineAddressAndCrc() {
 }
 
 void bq76930::setAlertInterruptFlag() {
-  interrupt_timestamp_ = (uint32_t)(esp_timer_get_time() / 1000);
+  interrupt_timestamp_ = esp_timer_get_time() / 1000;
   alert_interrupt_flag_ = true;
 }
 
 uint8_t bq76930::getErrorState() {
-    return error_state_;
+    return error_state_ & 0b01111111; // don't return cc_ready bit
 }
 
 void IRAM_ATTR bq76930::alertISR(void* data) {
@@ -218,11 +218,10 @@ int bq76930::checkStatus() {
         sec_since_error_counter_ = 0;
       }
       error_state_ = sys_stat.regByte;
-      
-      int sec_since_interrupt = (esp_timer_get_time() - interrupt_timestamp_) / 1000;
+      int sec_since_interrupt = (esp_timer_get_time() / 1000 - interrupt_timestamp_) / 1000;
       
       // check for overrun of millis() or very slow running program
-      if (abs(sec_since_interrupt - sec_since_error_counter_) > 2) {
+      if (abs((long)(sec_since_interrupt - sec_since_error_counter_)) > 2) {
         sec_since_error_counter_ = sec_since_interrupt;
       }
       
@@ -256,7 +255,7 @@ int bq76930::checkStatus() {
           }
         }
         if (sys_stat.regByte & 0b00000010) { // SCD
-          if (sec_since_error_counter_ % 6 == 0) {
+          if (sec_since_error_counter_ % 20 == 0) {
             ESP_LOGE(TAG, "Attempting to clear SCD error");
             writeRegister(SYS_STAT, 0b00000010);
           }
@@ -304,7 +303,7 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
         }
         // reset idleTimestamp
         if (abs(bat_current_) > idle_current_threshold_) {
-            idle_timestamp_ = esp_timer_get_time();
+            idle_timestamp_ = esp_timer_get_time() / 1000;
         }
         // no error occured which caused alert
         if (!(sys_stat.regByte & 0b00111111)) {
@@ -384,13 +383,13 @@ void bq76930::toggleBalancing(bool enable_balancing) {
 }
 
 void bq76930::updateBalancingSwitches() {
-    long idle_seconds = (esp_timer_get_time() - idle_timestamp_) / 1000;
+    long idle_seconds = (esp_timer_get_time() / 1000 - idle_timestamp_) / 1000;
     uint8_t number_of_sections = number_of_cells_/5;
     
     // Check for esp_timer_get_time() overflow
     if (idle_seconds < 0) {
         idle_timestamp_ = 0;
-        idle_seconds = esp_timer_get_time() / 1000;
+        idle_seconds = esp_timer_get_time() / 1000 / 1000;
     }
         
     // Check if balancing allowed
