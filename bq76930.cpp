@@ -279,10 +279,10 @@ int bq76930::checkStatus() {
 
 
 void bq76930::update() {
-  updateCurrent();  // will only read new current value if alert was triggered
-  updateVoltages();
-  updateTemperatures();
-  updateBalancingSwitches();
+    updateCurrent();  // will only read new current value if alert was triggered
+    updateVoltages();
+    updateTemperatures();
+    updateBalancingSwitches();
 }
 
 void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
@@ -419,9 +419,6 @@ void bq76930::updateBalancingSwitches() {
                     
                 if (adjacent_cell_collision == false) {
                     balancing_flags = balancing_flags_target;
-                    cell_balancing_states_[i + section * 5] = true;
-                } else {
-                    cell_balancing_states_[i + section * 5] = false;
                 }
             }
         }
@@ -437,11 +434,60 @@ void bq76930::updateBalancingSwitches() {
             writeRegister(CELLBAL1 + section, 0x0);
         }
         balancing_active_ = false;
+    } else if(balancing_allowed_ == false) {
+        writeRegister(CELLBAL1, 0b00000000);
+        writeRegister(CELLBAL2, 0b00000000);
     }
 }
 
 bool bq76930::getBalancingState(int id_cell) {
-    return cell_balancing_states_[id_cell - 1];
+    uint8_t cellbal1;
+    uint8_t cellbal2;
+    readRegister(CELLBAL1, &cellbal1, sizeof(cellbal1));
+    readRegister(CELLBAL2, &cellbal2, sizeof(cellbal2));
+    switch(id_cell) {
+        case 1:
+            cell_balancing_states_[0] = cellbal1 & 0b00000001;
+            return cellbal1 & 0b00000001;
+            break;
+        case 2:
+            cell_balancing_states_[1] = cellbal1 & 0b00000010;
+            return cellbal1 & 0b00000010;
+            break;
+        case 3:
+            cell_balancing_states_[2] = cellbal1 & 0b00000100;
+            return cellbal1 & 0b00000100;
+            break;
+        case 4:
+            cell_balancing_states_[3] = cellbal1 & 0b00001000;
+            return cellbal1 & 0b00001000;
+            break;
+        case 5:
+            cell_balancing_states_[4] = cellbal1 & 0b00010000;
+            return cellbal1 & 0b00010000;
+            break;
+        case 6:
+            cell_balancing_states_[5] = cellbal2 & 0b00000001;
+            return cellbal2 & 0b00000001;
+            break;
+        case 7:
+            cell_balancing_states_[6] = cellbal2 & 0b00000010;
+            return cellbal2 & 0b00000010;
+            break;
+        case 8:
+            cell_balancing_states_[7] = cellbal2 & 0b00000100;
+            return cellbal2 & 0b00000100;
+            break;
+        case 9:
+            cell_balancing_states_[8] = cellbal2 & 0b00001000;
+            return cellbal2 & 0b00001000;
+            break;
+        case 10:
+            cell_balancing_states_[9] = cellbal2 & 0b00010000;
+            return cellbal2 & 0b00010000;
+            break;
+    }
+    return false;
 }
 
 void bq76930::shutdown() {
@@ -449,7 +495,6 @@ void bq76930::shutdown() {
     writeRegister(SYS_CTRL1, 0x0);
     writeRegister(SYS_CTRL1, 0x1);
     writeRegister(SYS_CTRL1, 0x2);
-    
 }
 
 bool bq76930::toggleCharging(bool enable_charging) {
@@ -474,7 +519,6 @@ bool bq76930::toggleCharging(bool enable_charging) {
         return true;
 
     }
-    
 }
 
 void bq76930::setBalancingThresholds(int idle_time_min, int abs_voltage_mV, int voltage_difference_mV) {
