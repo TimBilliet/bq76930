@@ -10,7 +10,7 @@ Things that currently work:
 - Pack voltage reading
 - Charge current reading
 - Overvoltage protection
-- Undervoltage detection (protection hasn't been test since i have a charge only bms)
+- Undervoltage detection (protection hasn't been tested since i have a charge only bms)
 - Balancing
 
 # Fixes/changes of the original Arduino code.
