@@ -15,5 +15,5 @@ Things that currently work:
 
 # Fixes/changes of the original Arduino code.
 - Charge current wasn't calculated properly, the shunt resistor value wasn't being used. A hardcoded number was used.
-- current reading was not using the CC_HI and CC_LOW registers from header file
-- Added ability do disable charge FET
+- Current reading was not using the CC_HI and CC_LOW registers from header file
+- Added ability to disable charge FET
