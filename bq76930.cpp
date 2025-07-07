@@ -1,15 +1,17 @@
-#include <stdio.h>
 #include "bq76930.h"
-#include "registers.h"
-#include "driver/i2c.h"
+
+#include <stdio.h>
+
 #include "driver/gpio.h"
+#include "driver/i2c.h"
 #include "esp_check.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "registers.h"
 
-static const char *TAG = "BS76930_BMS";
+static const char* TAG = "BS76930_BMS";
 
 bq76930* bq76930::instance_pointer_ = 0;
 
@@ -50,18 +52,18 @@ esp_err_t bq76930::initialize(int alert_pin, int boot_pin) {
         };
         err = gpio_config(&conf);
         ESP_RETURN_ON_ERROR(err, TAG, "Boot pin initialisation error!");
-        gpio_set_level((gpio_num_t)boot_pin,1);
-        vTaskDelay(10 / portTICK_PERIOD_MS); // Atleast 2ms 
-        gpio_set_level((gpio_num_t)boot_pin,0);
+        gpio_set_level((gpio_num_t)boot_pin, 1);
+        vTaskDelay(10 / portTICK_PERIOD_MS);  // Atleast 2ms
+        gpio_set_level((gpio_num_t)boot_pin, 0);
         vTaskDelay(20 / portTICK_PERIOD_MS);
         ESP_LOGI(TAG, "IC boot sequence done");
     }
-    if(determineAddressAndCrc()) {
+    if (determineAddressAndCrc()) {
         ESP_LOGI(TAG, "Address and CRC detected successfully\n");
         ESP_LOGI(TAG, "Address: 0x%x\n", address_);
         ESP_LOGI(TAG, "CRC: %d\n", crc_enabled_);
-        writeRegister(SYS_CTRL1, 0b00010000); // Turn ADC on and use internal die temp
-        writeRegister(SYS_CTRL2, 0b01000000); // switch CC_EN on
+        writeRegister(SYS_CTRL1, 0b00010000);  // Turn ADC on and use internal die temp
+        writeRegister(SYS_CTRL2, 0b01000000);  // switch CC_EN on
         instance_pointer_ = this;
         gpio_config_t conf = {
             .pin_bit_mask = (1ULL << alert_pin),
@@ -97,7 +99,9 @@ esp_err_t bq76930::i2c_conf(int sda_pin, int scl_pin) {
         .scl_io_num = scl_pin,
         .sda_pullup_en = GPIO_PULLUP_DISABLE,
         .scl_pullup_en = GPIO_PULLUP_DISABLE,
-        .master={.clk_speed = 100000,},
+        .master = {
+            .clk_speed = 100000,
+        },
         .clk_flags = 0,
     };
     esp_err_t err = i2c_param_config(I2C_NUM_0, &conf);
@@ -109,12 +113,12 @@ esp_err_t bq76930::readRegister(uint8_t reg_addr, uint8_t* data, size_t len) {
     return i2c_master_write_read_device(I2C_NUM_0, address_, &reg_addr, 1, data, len, 1000 / portTICK_PERIOD_MS);
 }
 
-uint8_t _crc8_ccitt_update (uint8_t in_crc, uint8_t in_data) {
+uint8_t _crc8_ccitt_update(uint8_t in_crc, uint8_t in_data) {
     uint8_t i;
     uint8_t data;
     data = in_crc ^ in_data;
-    for ( i = 0; i < 8; i++ ) {
-        if (( data & 0x80 ) != 0 ) {
+    for (i = 0; i < 8; i++) {
+        if ((data & 0x80) != 0) {
             data <<= 1;
             data ^= 0x07;
         } else {
@@ -123,7 +127,7 @@ uint8_t _crc8_ccitt_update (uint8_t in_crc, uint8_t in_data) {
     }
     return data;
 }
-esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {// with CRC
+esp_err_t bq76930::writeRegister(uint8_t reg_addr, uint8_t data) {  // with CRC
     uint8_t buffer[3];
     buffer[0] = reg_addr;
     buffer[1] = data;
@@ -148,7 +152,7 @@ bool bq76930::determineAddressAndCrc() {
     uint8_t data;
     address_ = 0x08;
     crc_enabled_ = true;
-    
+
     writeRegister(CC_CFG, 0x19);
     readRegister(CC_CFG, &data, sizeof(data));
     if (data == 0x19) {
@@ -156,7 +160,7 @@ bool bq76930::determineAddressAndCrc() {
     }
     address_ = 0x18;
     crc_enabled_ = true;
-    
+
     writeRegister(CC_CFG, 0x19);
     readRegister(CC_CFG, &data, sizeof(data));
     if (data == 0x19) {
@@ -181,102 +185,97 @@ bool bq76930::determineAddressAndCrc() {
     if (data == 0x19) {
         return true;
     }
-    
+
     return false;
 }
 
 void bq76930::setAlertInterruptFlag() {
-  interrupt_timestamp_ = esp_timer_get_time() / 1000;
-  alert_interrupt_flag_ = true;
+    interrupt_timestamp_ = esp_timer_get_time() / 1000;
+    alert_interrupt_flag_ = true;
 }
 
 uint8_t bq76930::getErrorState() {
-    return error_state_ & 0b01111111; // don't return cc_ready bit
+    return error_state_ & 0b01111111;  // don't return cc_ready bit
 }
 
 void IRAM_ATTR bq76930::alertISR(void* data) {
-  if (instance_pointer_ != 0)
-  {
-    instance_pointer_->setAlertInterruptFlag();
-  }
+    if (instance_pointer_ != 0) {
+        instance_pointer_->setAlertInterruptFlag();
+    }
 }
 
 int bq76930::checkStatus() {
-  if (alert_interrupt_flag_ == false && error_state_ == 0) {
-    return 0;
-  }
-  else {
-    regSYS_STAT_t sys_stat;
-    readRegister(SYS_STAT, &sys_stat.regByte, sizeof(sys_stat.regByte));
-    if (sys_stat.bits.CC_READY == 1) {
-      updateCurrent(true);  // automatically clears CC ready flag	
+    if (alert_interrupt_flag_ == false && error_state_ == 0) {
+        return 0;
+    } else {
+        regSYS_STAT_t sys_stat;
+        readRegister(SYS_STAT, &sys_stat.regByte, sizeof(sys_stat.regByte));
+        if (sys_stat.bits.CC_READY == 1) {
+            updateCurrent(true);  // automatically clears CC ready flag
+        }
+
+        // Serious error occured
+        if (sys_stat.regByte & 0b00111111) {
+            if (alert_interrupt_flag_ == true) {
+                sec_since_error_counter_ = 0;
+            }
+            error_state_ = sys_stat.regByte;
+            int sec_since_interrupt = (esp_timer_get_time() / 1000 - interrupt_timestamp_) / 1000;
+
+            // check for overrun of millis() or very slow running program
+            if (abs((long)(sec_since_interrupt - sec_since_error_counter_)) > 2) {
+                sec_since_error_counter_ = sec_since_interrupt;
+            }
+
+            // called only once per second
+            if (sec_since_interrupt >= sec_since_error_counter_) {
+                if (sys_stat.regByte & 0b00100000) {  // XR error
+                    // datasheet recommendation: try to clear after waiting a few seconds
+                    if (sec_since_error_counter_ % 3 == 0) {
+                        ESP_LOGE(TAG, "Attempting to clear XR error");
+                        writeRegister(SYS_STAT, 0b00100000);
+                    }
+                }
+                if (sys_stat.regByte & 0b00010000) {  // Alert error
+                    if (sec_since_error_counter_ % 10 == 0) {
+                        ESP_LOGE(TAG, "Attempting to clear Alert error");
+                        writeRegister(SYS_STAT, 0b00010000);
+                    }
+                }
+                if (sys_stat.regByte & 0b00001000) {  // UV error
+                    updateVoltages();
+                    if (cell_voltages_[id_cell_min_voltage_] > min_cell_voltage_) {
+                        ESP_LOGE(TAG, "Attempting to clear UV error");
+                        writeRegister(SYS_STAT, 0b00001000);
+                    }
+                }
+                if (sys_stat.regByte & 0b00000100) {  // OV error
+                    updateVoltages();
+                    if (cell_voltages_[id_cell_max_voltage_] < max_cell_voltage_) {
+                        ESP_LOGE(TAG, "Attempting to clear OV error");
+                        writeRegister(SYS_STAT, 0b00000100);
+                    }
+                }
+                if (sys_stat.regByte & 0b00000010) {  // SCD
+                    if (sec_since_error_counter_ % 20 == 0) {
+                        ESP_LOGE(TAG, "Attempting to clear SCD error");
+                        writeRegister(SYS_STAT, 0b00000010);
+                    }
+                }
+                if (sys_stat.regByte & 0b00000001) {  // OCD
+                    if (sec_since_error_counter_ % 60 == 0) {
+                        ESP_LOGE(TAG, "Attempting to clear OCD error");
+                        writeRegister(SYS_STAT, 0b00000001);
+                    }
+                }
+                sec_since_error_counter_++;
+            }
+        } else {
+            error_state_ = 0;
+        }
+        return error_state_;
     }
-    
-    // Serious error occured
-    if (sys_stat.regByte & 0b00111111) {
-      if (alert_interrupt_flag_ == true) {
-        sec_since_error_counter_ = 0;
-      }
-      error_state_ = sys_stat.regByte;
-      int sec_since_interrupt = (esp_timer_get_time() / 1000 - interrupt_timestamp_) / 1000;
-      
-      // check for overrun of millis() or very slow running program
-      if (abs((long)(sec_since_interrupt - sec_since_error_counter_)) > 2) {
-        sec_since_error_counter_ = sec_since_interrupt;
-      }
-      
-      // called only once per second
-      if (sec_since_interrupt >= sec_since_error_counter_) {
-        if (sys_stat.regByte & 0b00100000) { // XR error
-          // datasheet recommendation: try to clear after waiting a few seconds
-          if (sec_since_error_counter_ % 3 == 0) {
-            ESP_LOGE(TAG, "Attempting to clear XR error");
-            writeRegister(SYS_STAT, 0b00100000);
-          }
-        }
-        if (sys_stat.regByte & 0b00010000) { // Alert error
-          if (sec_since_error_counter_ % 10 == 0) {
-            ESP_LOGE(TAG, "Attempting to clear Alert error");
-            writeRegister(SYS_STAT, 0b00010000);
-          }
-        }
-        if (sys_stat.regByte & 0b00001000) { // UV error
-          updateVoltages();
-          if (cell_voltages_[id_cell_min_voltage_] > min_cell_voltage_) {
-            ESP_LOGE(TAG, "Attempting to clear UV error");
-            writeRegister(SYS_STAT, 0b00001000);
-          }
-        }
-        if (sys_stat.regByte & 0b00000100) { // OV error
-          updateVoltages();
-          if (cell_voltages_[id_cell_max_voltage_] < max_cell_voltage_) {
-            ESP_LOGE(TAG, "Attempting to clear OV error");
-            writeRegister(SYS_STAT, 0b00000100);
-          }
-        }
-        if (sys_stat.regByte & 0b00000010) { // SCD
-          if (sec_since_error_counter_ % 20 == 0) {
-            ESP_LOGE(TAG, "Attempting to clear SCD error");
-            writeRegister(SYS_STAT, 0b00000010);
-          }
-        }
-        if (sys_stat.regByte & 0b00000001) { // OCD
-          if (sec_since_error_counter_ % 60 == 0) {
-            ESP_LOGE(TAG, "Attempting to clear OCD error");
-            writeRegister(SYS_STAT, 0b00000001);
-          }
-        }
-        sec_since_error_counter_++;
-      }
-    }
-    else {
-      error_state_ = 0;
-    }
-    return error_state_;
-  }
 }
-
-
 
 void bq76930::update() {
     updateCurrent();  // will only read new current value if alert was triggered
@@ -289,12 +288,12 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
     int adc_val = 0;
     regSYS_STAT_t sys_stat;
     readRegister(SYS_STAT, &sys_stat.regByte, sizeof(sys_stat.regByte));
-    
+
     if (ignore_CC_ready_flag == true || sys_stat.bits.CC_READY == 1) {
         uint8_t cc_high;
         uint8_t cc_low;
-        
-        readRegister(CC_HI_BYTE, &cc_high, sizeof(cc_high)); // changed CC address to address from header file
+
+        readRegister(CC_HI_BYTE, &cc_high, sizeof(cc_high));
         readRegister(CC_LO_BYTE, &cc_low, sizeof(cc_low));
         adc_val = cc_high << 8 | cc_low;
         bat_current_ = adc_val * 8.44 / shunt_value_mOhm_;  // mA
@@ -309,55 +308,51 @@ void bq76930::updateCurrent(bool ignore_CC_ready_flag) {
         if (!(sys_stat.regByte & 0b00111111)) {
             alert_interrupt_flag_ = false;
         }
-        writeRegister(SYS_STAT, 0b10000000);  // Clear CC ready flag	
+        writeRegister(SYS_STAT, 0b10000000);  // Clear CC ready flag
     }
 }
 
 void bq76930::updateVoltages() {
     int connected_cells = 0;
-    id_cell_max_voltage_ = 0; //resets to zero before writing values to these vars
+    id_cell_max_voltage_ = 0;  // resets to zero before writing values to these vars
     id_cell_min_voltage_ = 0;
     uint8_t crc = 0;
-    uint8_t buf[4] = {0, 0, 0, 0};
-    //buf[0] = VC2_HI_BYTE; // start with the first cell
+    uint8_t buf[4] = {0};
     uint16_t adc_val = 0;
     // Read battery pack voltage
-    for (int i = 0; i < number_of_cells_; i++) { // will run once for each cell up to the total num of cells
+    for (int i = 0; i < number_of_cells_; i++) {  // will run once for each cell up to the total num of cells
         if (crc_enabled_ == true) {
             uint8_t hi_byte = VC_HI_BYTES[i];
-            //i2c_master_write_read_device(I2C_NUM_0, address_, &VC_HI_BYTES[i], 1, buf, 4, 1000 / portTICK_PERIOD_MS);
+            // i2c_master_write_read_device(I2C_NUM_0, address_, &VC_HI_BYTES[i], 1, buf, 4, 1000 / portTICK_PERIOD_MS);
             readRegister(VC_HI_BYTES[i], buf, sizeof(buf));
-			// 1st check if CRC matches data bytes
-			// CRC of first bytes includes slave address (including R/W bit) and data
+            // 1st check if CRC matches data bytes
+            // CRC of first bytes includes slave address (including R/W bit) and data
             crc = _crc8_ccitt_update(0, (address_ << 1) | 1);
             crc = _crc8_ccitt_update(crc, buf[0]);
-            if (crc != buf[1]){
+            if (crc != buf[1]) {
                 ESP_LOGE(TAG, "CRC check fail at 1st byte read - crc of 1st bytes and data doesn't match");
-				return; //don't save corrupt value and exit
-			}
-				
-			// CRC of subsequent bytes contain only data
+                return;  // don't save corrupt value and exit
+            }
+
+            // CRC of subsequent bytes contain only data
             crc = _crc8_ccitt_update(0, buf[2]);
             if (crc != buf[3]) {
                 ESP_LOGE(TAG, "CRC check failed upon read - crc of 2nd byte and data doesn't match");
-				return; // don't save corrupted value
-			}
-        } else { // If CRC is disabled only read 2 bytes and call it a day :)
-            // Wire.requestFrom(I2CAddress, 2); // requests 4 bytes: 1)hi Byte 2)Hi byte CRC 3) Lo Byte 4) Lo byte crc
-            // 	buf[0] = Wire.read(); // hi data - note that only bottom 6 bits are good
-            // 	buf[2] = Wire.read(); // lo data byte - all 8 bits are used
+                return;  // don't save corrupted value
+            }
+        } else {  // If CRC is disabled only read 2 bytes and call it a day :)
             readRegister(VC_HI_BYTES[i], buf, sizeof(buf));
         }
 
         // Get Cell Voltages now
-        adc_val = (buf[0] & 0b00111111) << 8 | buf[2];  // reads 1st byte from register and drop the first two bits, shift left then use lo data
-        cell_voltages_[i] = adc_val * adc_gain_ / 1000 + adc_offset_; // calculates real voltage in mV
+        adc_val = (buf[0] & 0b00111111) << 8 | buf[2];                 // reads 1st byte from register and drop the first two bits, shift left then use lo data
+        cell_voltages_[i] = adc_val * adc_gain_ / 1000 + adc_offset_;  // calculates real voltage in mV
         // Filter out fake voltage readings from non-connected cells
-        if (cell_voltages_[i] > 500) {  
-            connected_cells++; //adds one to the temporary cell counter var - only readings above 500mV are counted towards real cell count
+        if (cell_voltages_[i] > 500) {
+            connected_cells++;  // adds one to the temporary cell counter var - only readings above 500mV are counted towards real cell count
         }
 
-        if (cell_voltages_[i] > cell_voltages_[id_cell_max_voltage_]) { // if the current cell voltage is higher than the last cells, bump this up
+        if (cell_voltages_[i] > cell_voltages_[id_cell_max_voltage_]) {  // if the current cell voltage is higher than the last cells, bump this up
             id_cell_max_voltage_ = i;
         }
         if (cell_voltages_[i] < cell_voltages_[id_cell_min_voltage_] && cell_voltages_[i] > 500) {
@@ -371,11 +366,10 @@ void bq76930::updateVoltages() {
     readRegister(BAT_LO_BYTE, &bat_low, sizeof(bat_low));
     adc_val = bat_high << 8 | bat_low;
     bat_voltage_ = 4.0 * adc_gain_ * adc_val / 1000.0 + connected_cells * adc_offset_;
-    // printf("bat_voltage_: %d\n", bat_voltage_);
 }
 
 void bq76930::updateTemperatures() {
-    //not implemented
+    // not implemented
 }
 
 void bq76930::toggleBalancing(bool enable_balancing) {
@@ -384,57 +378,51 @@ void bq76930::toggleBalancing(bool enable_balancing) {
 
 void bq76930::updateBalancingSwitches() {
     long idle_seconds = (esp_timer_get_time() / 1000 - idle_timestamp_) / 1000;
-    uint8_t number_of_sections = number_of_cells_/5;
-    
+    uint8_t number_of_sections = number_of_cells_ / 5;
+
     // Check for esp_timer_get_time() overflow
     if (idle_seconds < 0) {
         idle_timestamp_ = 0;
         idle_seconds = esp_timer_get_time() / 1000 / 1000;
     }
-        
-    // Check if balancing allowed
-    if (checkStatus() == 0
-    && idle_seconds >= balancing_min_idle_time_s_
-    && cell_voltages_[id_cell_max_voltage_] > balancing_min_cell_voltage_mV_
-    &&(cell_voltages_[id_cell_max_voltage_] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_
-    && balancing_allowed_ == true) {
 
+    // Check if balancing allowed
+    if (checkStatus() == 0 && idle_seconds >= balancing_min_idle_time_s_ && cell_voltages_[id_cell_max_voltage_] > balancing_min_cell_voltage_mV_ && (cell_voltages_[id_cell_max_voltage_] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_ && balancing_allowed_ == true) {
         balancing_active_ = true;
-        
+
         regCELLBAL_t cellbal;
         uint8_t balancing_flags;
         uint8_t balancing_flags_target;
-        
-        for (int section = 0; section < number_of_sections; section++) {
-        balancing_flags = 0;
-        for (int i = 0; i < 5; i++) {
-            if ((cell_voltages_[section*5 + i] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_) {
-                // try to enable balancing of current cell
-                balancing_flags_target = balancing_flags | (1 << i);
 
-                // check if attempting to balance adjacent cells
-                bool adjacent_cell_collision = 
-                    ((balancing_flags_target << 1) & balancing_flags) ||
-                    ((balancing_flags << 1) & balancing_flags_target);
-                    
-                if (adjacent_cell_collision == false) {
-                    balancing_flags = balancing_flags_target;
+        for (int section = 0; section < number_of_sections; section++) {
+            balancing_flags = 0;
+            for (int i = 0; i < 5; i++) {
+                if ((cell_voltages_[section * 5 + i] - cell_voltages_[id_cell_min_voltage_]) > balancing_max_voltage_difference_mV_) {
+                    // try to enable balancing of current cell
+                    balancing_flags_target = balancing_flags | (1 << i);
+
+                    // check if attempting to balance adjacent cells
+                    bool adjacent_cell_collision =
+                        ((balancing_flags_target << 1) & balancing_flags) ||
+                        ((balancing_flags << 1) & balancing_flags_target);
+
+                    if (adjacent_cell_collision == false) {
+                        balancing_flags = balancing_flags_target;
+                    }
                 }
             }
+            // ESP_LOGI(TAG, "Setting CELLBAL %d register to %x", (section + 1), balancing_flags);
+            //  Set balancing register for this section
+            writeRegister(CELLBAL1 + section, balancing_flags);
         }
-        //ESP_LOGI(TAG, "Setting CELLBAL %d register to %x", (section + 1), balancing_flags);
-        // Set balancing register for this section
-        writeRegister(CELLBAL1 + section, balancing_flags);
-
-        }
-    } else if (balancing_active_ == true) {  
+    } else if (balancing_active_ == true) {
         // clear all CELLBAL registers
         for (int section = 0; section < number_of_sections; section++) {
             ESP_LOGI(TAG, "Clearing Register CELLBAL %d", (section + 1));
             writeRegister(CELLBAL1 + section, 0x0);
         }
         balancing_active_ = false;
-    } else if(balancing_allowed_ == false) {
+    } else if (balancing_allowed_ == false) {
         writeRegister(CELLBAL1, 0b00000000);
         writeRegister(CELLBAL2, 0b00000000);
     }
@@ -445,7 +433,7 @@ bool bq76930::getBalancingState(int id_cell) {
     uint8_t cellbal2;
     readRegister(CELLBAL1, &cellbal1, sizeof(cellbal1));
     readRegister(CELLBAL2, &cellbal2, sizeof(cellbal2));
-    switch(id_cell) {
+    switch (id_cell) {
         case 1:
             cell_balancing_states_[0] = cellbal1 & 0b00000001;
             return cellbal1 & 0b00000001;
@@ -506,7 +494,7 @@ bool bq76930::toggleCharging(bool enable_charging) {
             uint8_t sys_ctrl2;
             readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
             writeRegister(SYS_CTRL2, sys_ctrl2 | 0b00000001);  // switch CHG on
-            ESP_LOGI(TAG,"CHG FET enabled");
+            ESP_LOGI(TAG, "CHG FET enabled");
             return true;
         } else {
             return false;
@@ -515,9 +503,8 @@ bool bq76930::toggleCharging(bool enable_charging) {
         uint8_t sys_ctrl2;
         readRegister(SYS_CTRL2, &sys_ctrl2, sizeof(sys_ctrl2));
         writeRegister(SYS_CTRL2, sys_ctrl2 & 0b11111110);  // switch CHG off
-        ESP_LOGI(TAG,"CHG FET disabled");
+        ESP_LOGI(TAG, "CHG FET disabled");
         return true;
-
     }
 }
 
@@ -535,7 +522,7 @@ void bq76930::setShuntResistorValue(int res_mOhm) {
 
 void bq76930::setThermistorBetaValue(int beta_K) {
     // not implemented
-    //thermistor_beta_value_ = beta_K;
+    // thermistor_beta_value_ = beta_K;
 }
 
 void bq76930::setTemperatureLimits(int min_discharge_degC, int max_discharge_degC, int min_charge_degC, int max_charge_degC) {
@@ -544,7 +531,7 @@ void bq76930::setTemperatureLimits(int min_discharge_degC, int max_discharge_deg
     // min_celltemp_discharge_ = min_discharge_degC * 10;
     // max_celltemp_discharge_ = max_discharge_degC * 10;
     // min_celltemp_charge_ = min_charge_degC * 10;
-    // max_celltemp_charge_ = max_charge_degC * 10;  
+    // max_celltemp_charge_ = max_charge_degC * 10;
 }
 
 void bq76930::setIdleCurrentThreshold(int current_mA) {
@@ -572,22 +559,21 @@ long bq76930::setOvercurrentDischargeProtection(int32_t current_mA, int delay_ms
 int bq76930::setCellUndervoltageProtection(int voltage_mV, int delay_s) {
     regPROTECT3_t protect3;
     uint8_t uv_trip = 0;
-    
+
     min_cell_voltage_ = voltage_mV;
-    //   protect3.regByte = readRegister(PROTECT3);
     readRegister(PROTECT3, &protect3.regByte, sizeof(protect3.regByte));
     uv_trip = ((((long)voltage_mV - adc_offset_) * 1000 / adc_gain_) >> 4) & 0x00FF;
-    uv_trip += 1;   // always round up for lower cell voltage
+    uv_trip += 1;  // always round up for lower cell voltage
     writeRegister(UV_TRIP, uv_trip);
-    
+
     protect3.bits.UV_DELAY = 0;
-    for (int i = sizeof(UV_delay_setting)-1; i > 0; i--) {
+    for (int i = sizeof(UV_delay_setting) - 1; i > 0; i--) {
         if (delay_s >= UV_delay_setting[i]) {
-        protect3.bits.UV_DELAY = i;
-        break;
+            protect3.bits.UV_DELAY = i;
+            break;
         }
     }
-    
+
     writeRegister(PROTECT3, protect3.regByte);
     ESP_LOGI(TAG, "Under voltage protection set to %d mV", voltage_mV);
     // returns the actual current threshold value
@@ -599,20 +585,19 @@ int bq76930::setCellOvervoltageProtection(int voltage_mV, int delay_s) {
     uint8_t ov_trip = 0;
 
     max_cell_voltage_ = voltage_mV;
-    
-    //   protect3.regByte = readRegister(PROTECT3);
+
     readRegister(PROTECT3, &protect3.regByte, sizeof(protect3.regByte));
     ov_trip = ((((long)voltage_mV - adc_offset_) * 1000 / adc_gain_) >> 4) & 0x00FF;
     writeRegister(OV_TRIP, ov_trip);
-        
+
     protect3.bits.OV_DELAY = 0;
-    for (int i = sizeof(OV_delay_setting)-1; i > 0; i--) {
+    for (int i = sizeof(OV_delay_setting) - 1; i > 0; i--) {
         if (delay_s >= OV_delay_setting[i]) {
-        protect3.bits.OV_DELAY = i;
-        break;
+            protect3.bits.OV_DELAY = i;
+            break;
         }
     }
-    
+
     writeRegister(PROTECT3, protect3.regByte);
     ESP_LOGI(TAG, "Over voltage protection set to %d mV", voltage_mV);
     // returns the actual current threshold value
@@ -632,7 +617,7 @@ int bq76930::getMaxCellVoltage() {
 }
 
 int bq76930::getCellVoltage(int id_cell) {
-    return cell_voltages_[id_cell-1];
+    return cell_voltages_[id_cell - 1];
 }
 
 float bq76930::getTemperatureDegC(int channel) {
