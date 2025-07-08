@@ -40,9 +40,7 @@ esp_err_t bq76930::initialize(int alert_pin, int boot_pin) {
     err = i2c_conf(sda_pin_, scl_pin_);
     ESP_RETURN_ON_ERROR(err, TAG, "I2C initialisation error!\n");
     ESP_LOGI(TAG, "I2C initialized\n");
-    for (uint8_t i = 0; i < 9; i++) {
-        cell_voltages_[i] = 0;
-    }
+    cell_voltages_[i] = {0};
     if (boot_pin >= 0) {
         gpio_config_t conf = {
             .pin_bit_mask = (1ULL << boot_pin),
